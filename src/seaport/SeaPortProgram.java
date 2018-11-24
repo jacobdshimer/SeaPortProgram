@@ -9,15 +9,14 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Scanner;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -31,7 +30,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 
@@ -40,12 +38,20 @@ public class SeaPortProgram extends JFrame{
     JTextArea textArea;
     JTextArea jobStatus;
     JTextArea jobPool;
+    JPanel jobsPanePanel;
+    JScrollPane jobsPane;
     
     // Got rid of the different arrays and now everything is stored within this one object world
     World world = new World();
+    HashMap<Integer, Ship> allShips = new HashMap<>();
+    HashMap<Integer, Dock> allDocks = new HashMap<>();
+    HashMap<SeaPort, HashMap<String,ArrayList<Person>>> workerPool;
+    
     // This is so that if someone tries to run any part of the program without first reading the file
     // it will give an error saying that it must be read first
     int readcount = 0;
+    boolean ready;
+    boolean running;
     
     // JTree Root Node Creation
     DefaultMutableTreeNode ports = new DefaultMutableTreeNode("Ports");
@@ -57,6 +63,8 @@ public class SeaPortProgram extends JFrame{
     
     
     public SeaPortProgram() {
+        ready = false;
+        running = true;
         JFrame frame = new JFrame();
         Scanner sf = null;
         // Set the location of the JFileChooser to the source directory
@@ -107,7 +115,7 @@ public class SeaPortProgram extends JFrame{
         JPanel treePanel = new JPanel(new BorderLayout());
         JPanel treeButtonsPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         JPanel mainJobsPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        JPanel jobsPanePanel = new JPanel(new GridLayout(0, 1));
+        jobsPanePanel = new JPanel(new GridLayout(0, 1));
         JPanel jobsLogPanel = new JPanel(new GridLayout(1, 2, 5, 5));
         
         // Options Tab - In order they appear
@@ -183,7 +191,7 @@ public class SeaPortProgram extends JFrame{
         // Create the Panes
         JScrollPane jobStatusPane = new JScrollPane(jobStatus);
         JScrollPane jobPoolPane = new JScrollPane(jobPool);
-        JScrollPane jobsPane = new JScrollPane(jobsPanePanel);
+        jobsPane = new JScrollPane(jobsPanePanel);
         
         // Add the logging panes to the logging panel
         jobsLogPanel.add(jobStatusPane);
@@ -223,8 +231,9 @@ public class SeaPortProgram extends JFrame{
     
     // Read the file
     public void readFile(Scanner sc){
+        workerPool = new HashMap<>();
         String inline;
-        readcount += 1;
+        
         while (sc.hasNextLine()){
             inline = String.valueOf(sc.nextLine()).trim();
             if (inline.length() == 0) continue;
@@ -245,7 +254,7 @@ public class SeaPortProgram extends JFrame{
                     // Create the dock object, loop through the different ports within world and check if the docks parent is equal to the 
                     // port's index.  If it is, add it to world -> port hashmap at specified index -> dock hashmap
                     Dock dock = new Dock(line);
-                    for (SeaPort p:world.getPorts().values()){
+                    for (SeaPort p:world.getPorts()){
                         if (dock.getParent() == p.getIndex()) {
                             p.addToDocks(dock.getIndex(), dock);
                             
@@ -258,12 +267,13 @@ public class SeaPortProgram extends JFrame{
                     // ships hashmap.  If it doesn't match but it matches the port's index, then it adds it to the port's que and then adds it to the port's
                     // ships hashmap.
                     PassengerShip pship = new PassengerShip(line, world.getTime(), world.getTime());
-                    for (SeaPort p: world.getPorts().values()) {
-                        for (Dock d: p.getDocks().values()){
+                    allShips.put(pship.getIndex(), pship);
+                    for (SeaPort p: world.getPorts()) {
+                        for (Dock d: p.getDocks()){
                             if (pship.getParent() == d.getIndex()){
                                 d.setShip(pship);
                                 p.addToShips(pship.getIndex(), pship);
-                            } else if (pship.getParent() == p.getIndex() && !p.getQue().containsValue(pship)) {
+                            } else if (pship.getParent() == p.getIndex() && !p.getQue().contains(pship)) {
                                 p.addToQue(pship.getIndex(), pship);
                                 p.addToShips(pship.getIndex(), pship);
                             }
@@ -272,12 +282,13 @@ public class SeaPortProgram extends JFrame{
                     break;
                 case "cship": 
                     CargoShip cship = new CargoShip(line, world.getTime(), world.getTime());
-                    for (SeaPort p: world.getPorts().values()) {
-                        for (Dock d: p.getDocks().values()){
+                    allShips.put(cship.getIndex(), cship);
+                    for (SeaPort p: world.getPorts()) {
+                        for (Dock d: p.getDocks()){
                             if (cship.getParent() == d.getIndex()){
                                 d.setShip(cship);
                                 p.addToShips(cship.getIndex(), cship);
-                            } else if (cship.getParent() == p.getIndex() && !p.getQue().containsValue(cship)) {
+                            } else if (cship.getParent() == p.getIndex() && !p.getQue().contains(cship)) {
                                 p.addToQue(cship.getIndex(), cship);
                                 p.addToShips(cship.getIndex(), cship);
                             }
@@ -287,7 +298,7 @@ public class SeaPortProgram extends JFrame{
                 case "person": 
                     // Same as dock's but with people instead.
                     Person person = new Person(line);
-                    for (SeaPort p: world.getPorts().values()){
+                    for (SeaPort p: world.getPorts()){
                         if (person.getParent() == p.getIndex()){
                             p.addToPersons(person.getIndex(), person);
                         }
@@ -295,52 +306,66 @@ public class SeaPortProgram extends JFrame{
                     break;
                     // Same as the ships loop, this just adds jobs to a dock if the jobs parent matches the docks index
                 case "job":
-                    Job job = new Job(line);
-                    for (SeaPort p: world.getPorts().values()){
-                        for (Ship s: p.getShips().values()){
+                    Job job = new Job(line, allShips, allDocks, jobsPanePanel);
+                    for (SeaPort p: world.getPorts()){
+                        for (Ship s: p.getShips()){
                             if (job.getParent() == s.getIndex()){
                                 s.addJobs(job.getIndex(), job);
                             }
                         }
-                        for (Dock d: p.getDocks().values()){
-                            if (job.getParent() == d.getIndex()){
-                                d.getShip().addJobs(job.getIndex(), job);
-                            }
-                        }
+                        
                     }
                     break;
             }
         }
         
-        for (SeaPort port:world.getPorts().values()){
+        
+        for (SeaPort port:world.getPorts()){
+            // Map of Skills to People with that Skill
+            HashMap<String, ArrayList<Person>> skillsMap = new HashMap<>();
             DefaultMutableTreeNode portNode = new DefaultMutableTreeNode(port.getName());
             DefaultMutableTreeNode dockNode = new DefaultMutableTreeNode("Docks");
             DefaultMutableTreeNode queNode = new DefaultMutableTreeNode("Que");
             DefaultMutableTreeNode personNode = new DefaultMutableTreeNode("People");
-            for (Dock dock:port.getDocks().values()){
+            for (Dock dock:port.getDocks()){
                 dockNode.add(new DefaultMutableTreeNode(dock.getName()));
             }
             
-            for (Ship ship:port.getQue().values()){
+            for (Ship ship:port.getQue()){
                 queNode.add(new DefaultMutableTreeNode(ship.getName()));
             }
             
-            for (Person person:port.getPersons().values()){
+            for (Person person:port.getPersons()){
                 personNode.add(new DefaultMutableTreeNode(person.getName()));
+                if (skillsMap.get(person.getSkill()) == null){
+                    skillsMap.put(person.getSkill(), new ArrayList<>());
+                    skillsMap.get(person.getSkill()).add(person);
+                } else {
+                    skillsMap.get(person.getSkill()).add(person);
+                }
+                
             }
             
+            workerPool.put(port, skillsMap);
             portNode.add(dockNode);
             portNode.add(queNode);
             portNode.add(personNode);
             ports.add(portNode);
             
         }
+        
+        
+        ready = true;
+        updateWorkerPoolGUI();
+        
+        
+        
     }
     
     // This is my search functionality.  Just like the readFile() method, I went away from having a whole bunch of methods and instead 
     // rely on methods within the classes.
     public void search(String type, String target){
-        if (readcount < 1){
+        if (!ready){
             textArea.append("FILE NOT READ YET!\n");
         } else {
             target = target.replace(" ", "");
@@ -361,21 +386,28 @@ public class SeaPortProgram extends JFrame{
                         break;
                     }
 
-                    //  After some error checking is done, first it checks to see if world's ports hashmap contains the key search target.
-                    // Because the key for the hashmap is the port's index, this is incredibly simple.
-                    if (world.getPorts().containsKey(intTarget)){
-                        textArea.append(world.getPortByIndex(intTarget, world.getPorts()).toString());
-                    }
 
                     // If the target is not a port, then it loops through the ports hashmap and looks in the different hashmaps.
-                    for (SeaPort port: world.getPorts().values()){
-                        if (port.getDocks().containsKey(intTarget)){
-                            textArea.append(port.getDockByIndex(intTarget, port.getDocks()).toString());
-                        } else if (port.getShips().containsKey(intTarget)){
-                            textArea.append(port.getShipByIndex(intTarget, port.getShips()).toString());
-                        } else if (port.getPersons().containsKey(intTarget)){
-                            textArea.append(port.getPersonByIndex(intTarget, port.getPersons()).toString());
+                    for (SeaPort port: world.getPorts()){
+                        if (port.getIndex() == intTarget){
+                            textArea.append(port.toString());
+                        } else {
+                            Dock dock = port.getDockByIndex(intTarget, port.getDocks());
+                            Ship ship = port.getShipByIndex(intTarget, port.getShips());
+                            Person person = port.getPersonByIndex(intTarget, port.getPersons());
+                            
+                            if (dock != null ){
+                                textArea.append(dock.toString());
+                            }
+                            if (ship != null){
+                                textArea.append(ship.toString());
+                            }
+                            if (person != null){
+                                textArea.append(person.toString());
+                            }
+                            
                         }
+                        
                     } break;
 
                 case "Name":
@@ -388,7 +420,7 @@ public class SeaPortProgram extends JFrame{
                     if (portWithName != null){
                         textArea.append(portWithName.toString());
                     } else {
-                        for (SeaPort port : world.getPorts().values()){
+                        for (SeaPort port : world.getPorts()){
                             // These all do the same as above
                             Dock dockWithName = port.getDockByName(target, port.getDocks());
                             Ship shipWithName = port.getShipByName(target, port.getShips());
@@ -409,8 +441,8 @@ public class SeaPortProgram extends JFrame{
                     // for people with the specified skill.
                     HashMap<String, ArrayList<String>> targetedPeople = new HashMap<>();
                     ArrayList<String> people = new ArrayList<>();
-                    for (SeaPort port : world.getPorts().values()) {
-                        for (Person person : port.getPersons().values()) {
+                    for (SeaPort port : world.getPorts()) {
+                        for (Person person : port.getPersons()) {
                             if (person.getSkill().equalsIgnoreCase(target)) {
                                 people.add(person.toString());
                                 break;
@@ -450,11 +482,11 @@ public class SeaPortProgram extends JFrame{
     
     // This method is entirely new to this version of the program.
     public void sort(String type){
-        if (readcount < 1){
+        if (!ready){
             textArea.append("FILE NOT READ YET!\n");
         } else {
             // Loop through each port
-            for (SeaPort port: world.getPorts().values()){
+            for (SeaPort port: world.getPorts()){
                 textArea.append("Sorting " + port.getName() + " by " + type + "\n");
                 textArea.append("----------------------------\n");
                 // Probably could've made this a switch statement, but I went with if statements
@@ -464,7 +496,7 @@ public class SeaPortProgram extends JFrame{
                 if (type.equals("Draft")) {
                     textArea.append("Name - Draft\n");
                     // Create an arraylist of ships in que.  Probably could've found a way to do this once, but didn't
-                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue().values());
+                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue());
                     // Sort it by the right comparator
                     Collections.sort(shipsInQue, new DraftComparator());
                     // Loop through the ships in the arraylist
@@ -474,21 +506,21 @@ public class SeaPortProgram extends JFrame{
                     } 
                 } else if (type.equals("Length")) {
                     textArea.append("Name - Length\n");
-                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue().values());
+                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue());
                     Collections.sort(shipsInQue, new LengthComparator());
                     for (Ship ship:shipsInQue){
                         textArea.append(ship.getName() + " - " + ship.getLength() + "\n");
                     }
                 } else if (type.equals("Width")) {
                     textArea.append("Name - Width\n");
-                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue().values());
+                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue());
                     Collections.sort(shipsInQue, new WidthComparator());
                     for (Ship ship:shipsInQue){
                         textArea.append(ship.getName() + " - " + ship.getWidth() + "\n");
                     }
                 } else if (type.equals("Weight")){
                     textArea.append("Name - Weight\n");
-                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue().values());
+                    ArrayList<Ship> shipsInQue = new ArrayList<>(port.getQue());
                     Collections.sort(shipsInQue, new WeightComparator());
                     for (Ship ship:shipsInQue){
                         textArea.append(ship.getName() + " - " + ship.getWeight() + "\n");
@@ -499,7 +531,7 @@ public class SeaPortProgram extends JFrame{
                     // Then sort them, loop throuh them, and then output to the screen
                     textArea.append("Docks by Name\n");
                     textArea.append("-------------\n");
-                    ArrayList<Dock> docks = new ArrayList<>(port.getDocks().values());
+                    ArrayList<Dock> docks = new ArrayList<>(port.getDocks());
                     Collections.sort(docks);
                     for (Dock dock:docks){
                         textArea.append(dock.getName() + "\n");
@@ -507,7 +539,7 @@ public class SeaPortProgram extends JFrame{
                     textArea.append("\n");
                     textArea.append("Ships by Name\n");
                     textArea.append("-------------\n");
-                    ArrayList<Ship> ships = new ArrayList<>(port.getShips().values());
+                    ArrayList<Ship> ships = new ArrayList<>(port.getShips());
                     Collections.sort(ships);
                     for (Ship ship:ships){
                         textArea.append(ship.getName() + "\n");
@@ -515,7 +547,7 @@ public class SeaPortProgram extends JFrame{
                     textArea.append("\n");
                     textArea.append("People by Name\n");
                     textArea.append("--------------\n");
-                    ArrayList<Person> persons = new ArrayList<>(port.getPersons().values());
+                    ArrayList<Person> persons = new ArrayList<>(port.getPersons());
                     Collections.sort(persons);
                     for (Person person:persons){
                         textArea.append(person.getName() + "\n");
@@ -543,9 +575,102 @@ public class SeaPortProgram extends JFrame{
 
         //textArea.append(selectedNode.getUserObject().toString());*/
     }
+    
+    public void update(){
+        
+        System.out.println(ready);
+        if (ready){
+            
+            for (SeaPort port : world.getPorts()){
+                for (Dock dock : port.getDocks()){
+                    if (dock.getShip().getJobs().isEmpty()){
+                        //jobStatus.append(String.format("[SHIP UNDOCKING] %s from %s in %s\n", dock.getShip().getName(), dock.getName(), port.getName()));
+                        dock.setShip(null);
+                        
+                        // While the port has a que
+                        while (!port.getQue().isEmpty()){
+                            Ship newShip = port.getQue().remove(0);
+                            if (!newShip.getJobs().isEmpty()){
+                                dock.setShip(newShip);
+                                
+                                //jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in " + port.getName() + "\n");
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                for (Ship ship : port.getShips()){
+                    
+                    if (!ship.getJobs().isEmpty()){
+                        
+                        for (Job job : ship.getJobs().values()){
+                            
+                            jobsPane.add(job.createGUI());
+                            jobsPane.revalidate();
+                            jobsPane.repaint();
+                            job.startJob();
+                            
+                            
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+    
+    public void updateWorkerPoolGUI(){
+        //System.out.println(workerPool);
+        String jobPoolText = "";
+        for (SeaPort port : workerPool.keySet()){
+            jobPoolText += port.getName() + "\n";
+            for (String skill : workerPool.get(port).keySet()){
+                jobPoolText += "    " + skill.toUpperCase() + "\n";
+                for (Person worker : workerPool.get(port).get(skill)){
+                    jobPoolText += "        " + worker.getName() + "\n";
+                }
+            }
+
+        }
+        jobPoolText += "\n";
+        jobPool.setText(jobPoolText);
+    }
+    
+    public void returnWorkerPool(ArrayList<Person> workers, SeaPort port){
+        for (Person worker : workers){
+            workerPool.get(port).get(worker.getSkill()).add(worker);
+            jobStatus.append("[WORKER RELEASED] " + worker.getName() + " - " + worker.getSkill() + " back in worker pool for port: " + port.getName() + "\n");
+        }
+        
+        updateWorkerPoolGUI();
+    }
+    
+    public void takeFromWorkerPool(Job job, Ship ship){
+        boolean allocateResources = true;
+        for (String requirement : job.getRequirements()){
+            
+            // Get the Port that this job belongs too, probably a better way to do this, need to look into it,
+            // mayber a way of a ship knowing what port it is at?
+            SeaPort jobPort = null;
+            for (SeaPort port : world.getPorts()){
+                for (Dock dock : port.getDocks()){
+                    if (ship.getParent() == dock.getIndex()){
+                        jobPort = port;
+                    }
+                }
+            }
+            
+            job.setParentPort(jobPort);
+            ArrayList<Person> workers = workerPool.get(jobPort).get(requirement);
+        }
+    }
      
     public static void main(String[] args) {
         SeaPortProgram sp = new SeaPortProgram();
+        while (sp.running){
+            sp.update();
+        }
     }
 
     

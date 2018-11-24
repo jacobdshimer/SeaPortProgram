@@ -5,6 +5,7 @@
 
 package seaport;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
 
@@ -14,89 +15,111 @@ import java.util.Scanner;
  * @author Shimer
  */
 public class SeaPort extends Thing{
-    private HashMap<Integer,Dock> docks;
-    private HashMap<Integer,Ship> que;
-    private HashMap<Integer,Ship> ships;
-    private HashMap<Integer,Person> persons;
+    private ArrayList<Dock> docks;
+    private ArrayList<Ship> que;
+    private ArrayList<Ship> ships;
+    private ArrayList<Person> persons;
+
 
     public SeaPort(Scanner sc) {
         super(sc);
-        this.docks = new HashMap<>();
-        this.que = new HashMap<>();
-        this.ships = new HashMap<>();
-        this.persons = new HashMap<>();
+        this.docks = new ArrayList<>();
+        this.que = new ArrayList<>();
+        this.ships = new ArrayList<>();
+        this.persons = new ArrayList<>();
     }
     
     // ------------------------ ADDERS ----------------------------------------
     public void addToDocks(int index, Dock dock){
-        getDocks().put(index, dock);
+        getDocks().add(dock);
         
     }
     
     public void addToQue(int index, Ship ship){
-        getQue().put(index, ship);
+        getQue().add(ship);
     }
     
     public void addToShips(int index, Ship ship){
-        getShips().put(index, ship);
+        getShips().add(ship);
     }
     
     public void addToPersons(int index, Person person){
-        getPersons().put(index, person);
+        getPersons().add(person);
     }
     
     // ------------------------ GETTERS ----------------------------------------
-    public HashMap<Integer, Dock> getDocks() {
+    public ArrayList<Dock> getDocks() {
         return docks;
     }
     
-    public HashMap<Integer, Ship> getQue() {
+    public ArrayList<Ship> getQue() {
         return que;
     }
     
-    public HashMap<Integer, Ship> getShips() {
+    public ArrayList<Ship> getShips() {
         return ships;
     }
     
-    public HashMap<Integer, Person> getPersons() {
+    public ArrayList<Person> getPersons() {
         return persons;
     }
     
     // ---------------- GETTING OBJECTS BY THEIR INDEX -------------------------
-    public Dock getDockByIndex(int x, HashMap<Integer, Dock> hmd){
-        return hmd.get(x);
+    
+    public Dock getDockByIndex(int x, ArrayList<Dock> docks){
+        for (Dock dock : docks){
+            if (dock.getIndex() == x){
+                return dock;
+            }
+        }
+        
+        return null;
     }
     
-    public Ship getShipByIndex(int x, HashMap<Integer, Ship> hms){
-        return hms.get(x);
+    public Ship getShipByIndex(int x, ArrayList<Ship> ships){
+        for (Ship ship : ships){
+            if (ship.getIndex() == x){
+                return ship;
+            }
+        }
+        
+        return null;
     }
     
-    public Person getPersonByIndex(int x, HashMap<Integer, Person> hmper){
-        return hmper.get(x);
+    public Person getPersonByIndex(int x, ArrayList<Person> persons){
+        for (Person person : persons){
+            if (person.getIndex() == x){
+                return person;
+            }
+        }
+        
+        return null;
     }
     
     // ----------------- GETTING OBJECTS BY NAME ------------------------------
     // This method's required parameters are a string and a hashmap.
     // loop through the hashmap and see if the name is equal to the passed name
     // if it is, return that object.  If it isn't, return null.
-    public Dock getDockByName(String name, HashMap<Integer, Dock> hmd){
-        for (Dock dock:hmd.values()){
+    
+    
+    public Dock getDockByName(String name, ArrayList<Dock> docks){
+        for (Dock dock : docks){
             if (dock.getName().equalsIgnoreCase(name)){
                 return dock;
             }
         } return null;
     }
     
-    public Ship getShipByName(String name, HashMap<Integer, Ship> hms){
-        for (Ship ship:hms.values()){
+    public Ship getShipByName(String name, ArrayList<Ship> ships){
+        for (Ship ship : ships){
             if (ship.getName().equalsIgnoreCase(name)){
                 return ship;
             }
         } return null;
     }
     
-    public Person getPersonByName(String name, HashMap<Integer, Person> hmp){
-        for (Person person:hmp.values()){
+    public Person getPersonByName(String name, ArrayList<Person> persons){
+        for (Person person : persons){
             if (person.getName().equalsIgnoreCase(name)){
                 return person;
             }
@@ -107,11 +130,11 @@ public class SeaPort extends Thing{
     public String toString () {
         String st = "\n\nSeaPort: " + super.toString();
         st += "\n\n --- List of all ships in que:";
-        for (Ship ms: getQue().values() ) st += "\n" + ms;
+        for (Ship ms: getQue() ) st += "\n" + ms;
         st += "\n\n --- List of all docked ships:";
-        for (Dock md: getDocks().values() ) st += "\n" + md;
+        for (Dock md: getDocks() ) st += "\n" + md;
         st += "\n\n --- List of all persons:";
-        for (Person mp: getPersons().values() ) st += "\n" + mp;
+        for (Person mp: getPersons() ) st += "\n" + mp;
         return st;
     }
 }

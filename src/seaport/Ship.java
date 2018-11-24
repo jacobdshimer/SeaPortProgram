@@ -64,6 +64,8 @@ public class Ship extends Thing{
     
     
     
+    
+    
     public String toString(){
         String st = super.toString();
         st += "Arrival Time: " + getArrivalTime() + "\n";

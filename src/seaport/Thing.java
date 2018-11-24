@@ -43,6 +43,12 @@ public class Thing implements Comparable <Thing> {
     public int getParent(){
         return parent;
     }
+
+    public void setParent(int parent) {
+        this.parent = parent;
+    }
+    
+    
     
     @Override
     public String toString () {
