@@ -12,11 +12,8 @@ import java.awt.Toolkit;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Scanner;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -26,6 +23,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
@@ -46,10 +44,9 @@ public class SeaPortProgram extends JFrame{
     HashMap<Integer, Ship> allShips = new HashMap<>();
     HashMap<Integer, Dock> allDocks = new HashMap<>();
     HashMap<SeaPort, HashMap<String,ArrayList<Person>>> workerPool;
-    
+    JTable table;
     // This is so that if someone tries to run any part of the program without first reading the file
     // it will give an error saying that it must be read first
-    int readcount = 0;
     boolean ready;
     boolean running;
     
@@ -357,7 +354,7 @@ public class SeaPortProgram extends JFrame{
         
         ready = true;
         updateWorkerPoolGUI();
-        
+        update();
         
         
     }
@@ -578,13 +575,13 @@ public class SeaPortProgram extends JFrame{
     
     public void update(){
         
-        System.out.println(ready);
+        
         if (ready){
             
             for (SeaPort port : world.getPorts()){
                 for (Dock dock : port.getDocks()){
                     if (dock.getShip().getJobs().isEmpty()){
-                        //jobStatus.append(String.format("[SHIP UNDOCKING] %s from %s in %s\n", dock.getShip().getName(), dock.getName(), port.getName()));
+                        jobStatus.append(String.format("[SHIP UNDOCKING] %s from %s in %s\n", dock.getShip().getName(), dock.getName(), port.getName()));
                         dock.setShip(null);
                         
                         // While the port has a que
@@ -592,8 +589,7 @@ public class SeaPortProgram extends JFrame{
                             Ship newShip = port.getQue().remove(0);
                             if (!newShip.getJobs().isEmpty()){
                                 dock.setShip(newShip);
-                                
-                                //jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in " + port.getName() + "\n");
+                                jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in " + port.getName() + "\n");
                                 break;
                             }
                         }
@@ -605,10 +601,11 @@ public class SeaPortProgram extends JFrame{
                     if (!ship.getJobs().isEmpty()){
                         
                         for (Job job : ship.getJobs().values()){
-                            
-                            jobsPane.add(job.createGUI());
-                            jobsPane.revalidate();
-                            jobsPane.repaint();
+                            System.out.println("test");
+
+                            jobsPanePanel.add(job.createGUI());
+                            jobsPanePanel.revalidate();
+                            jobsPanePanel.repaint();
                             job.startJob();
                             
                             
@@ -668,9 +665,7 @@ public class SeaPortProgram extends JFrame{
      
     public static void main(String[] args) {
         SeaPortProgram sp = new SeaPortProgram();
-        while (sp.running){
-            sp.update();
-        }
+        
     }
 
     
