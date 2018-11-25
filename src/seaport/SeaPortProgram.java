@@ -12,6 +12,7 @@ import java.awt.Toolkit;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Scanner;
@@ -37,7 +38,9 @@ public class SeaPortProgram extends JFrame{
     JTextArea jobStatus;
     JTextArea jobPool;
     JPanel jobsPanePanel;
+    JPanel treePanel;
     JScrollPane jobsPane;
+    JScrollPane treePane;
     
     // Got rid of the different arrays and now everything is stored within this one object world
     World world = new World();
@@ -99,7 +102,7 @@ public class SeaPortProgram extends JFrame{
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         int height = screenSize.height;
         int width = screenSize.width;
-        frame.setSize(width/2, height/2);
+        frame.setSize(width/2 + 275, height/2);
         
         // This just sets the frame to the middle of the screen
         frame.setLocationRelativeTo(null);
@@ -109,7 +112,7 @@ public class SeaPortProgram extends JFrame{
         JPanel main = new JPanel(new BorderLayout());
         JPanel optionsTab = new JPanel(new GridLayout(1, 10, 5, 5));
         JPanel worldInfoPanel = new JPanel(new GridLayout(2, 1, 5, 5));
-        JPanel treePanel = new JPanel(new BorderLayout());
+        treePanel = new JPanel(new BorderLayout());
         JPanel treeButtonsPanel = new JPanel(new GridLayout(1, 3, 10, 10));
         JPanel mainJobsPanel = new JPanel(new GridLayout(2, 1, 5, 5));
         jobsPanePanel = new JPanel(new GridLayout(0, 1));
@@ -151,9 +154,10 @@ public class SeaPortProgram extends JFrame{
         
         
         // Panel for JTree
+        
         tree.setModel(null);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        JScrollPane treePane = new JScrollPane(tree);
+        treePane = new JScrollPane(tree);
         treePanel.add(treePane, BorderLayout.CENTER);
         
         // Buttons for JTree
@@ -308,6 +312,7 @@ public class SeaPortProgram extends JFrame{
                         for (Ship s: p.getShips()){
                             if (job.getParent() == s.getIndex()){
                                 s.addJobs(job.getIndex(), job);
+                                update();
                             }
                         }
                         
@@ -354,7 +359,7 @@ public class SeaPortProgram extends JFrame{
         
         ready = true;
         updateWorkerPoolGUI();
-        update();
+        //update();
         
         
     }
@@ -574,46 +579,87 @@ public class SeaPortProgram extends JFrame{
     }
     
     public void update(){
-        
-        
         if (ready){
-            
             for (SeaPort port : world.getPorts()){
                 for (Dock dock : port.getDocks()){
+                    boolean readyToLeave = false;
+                    
+                    // Probably a bad way to do this, but this is how I found to make sure
+                    // that all of the Jobs have been completed.  First I turn the hashmap 
+                    // of jobs into a Collection, then turn this into an ArrayList.
+                    // I then loop through that ArrayList and get the status of the job
+                    // putting it into an Boolean array.  Its important that this is a 
+                    // Boolean array and not a boolean array, because a primitive boolean 
+                    // array will error out
+                    ArrayList<Job> listOfJobs = new ArrayList<>(dock.getShip().getJobs().values());
+                    Boolean[] allJobStatus = new Boolean[listOfJobs.size()];
+                    
+                    for (int i = 0; i < listOfJobs.size(); i++){
+                        allJobStatus[i] = listOfJobs.get(i).isIsFinished();
+                    }
+                    
+                    
+
+                    // If the dock doesn't have a ship
+                    if (dock.getShip() == null){
+                        continue;
+                    }
+                    
+                    // If the ship at the dock doesn't have any jobs to complete
                     if (dock.getShip().getJobs().isEmpty()){
-                        jobStatus.append(String.format("[SHIP UNDOCKING] %s from %s in %s\n", dock.getShip().getName(), dock.getName(), port.getName()));
-                        dock.setShip(null);
-                        
-                        // While the port has a que
-                        while (!port.getQue().isEmpty()){
-                            Ship newShip = port.getQue().remove(0);
-                            if (!newShip.getJobs().isEmpty()){
-                                dock.setShip(newShip);
-                                jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in " + port.getName() + "\n");
-                                break;
-                            }
+                        readyToLeave = true;
+                    }
+                    
+                    for (Job job : dock.getShip().getJobs().values()){
+                        if (!job.isIsFinished() || !job.isIsCancelled()){
+                            readyToLeave = false;
+                        } else if (job.isIsFinished() || job.isIsCancelled()){
+                            //dock.getShip().getJobs().remove(job.getIndex());
+                            job.setWorkers(new ArrayList<>());
+                            
                         }
                     }
-                }
-                
-                for (Ship ship : port.getShips()){
                     
-                    if (!ship.getJobs().isEmpty()){
-                        
-                        for (Job job : ship.getJobs().values()){
-                            System.out.println("test");
-
-                            jobsPanePanel.add(job.createGUI());
-                            jobsPanePanel.revalidate();
-                            jobsPanePanel.repaint();
-                            job.startJob();
-                            
-                            
+                    // This is a continuation of the above Boolean array. If the 
+                    // array contains any false, it sets readyToLeave to false,
+                    // else if there are no false's, then it sets it to true and the
+                    // ship can leave
+                    if (Arrays.asList(allJobStatus).contains(false)) {
+                        readyToLeave = false;
+                    } else {
+                        readyToLeave = true;
+                    }
+                    
+                                        
+                    if (readyToLeave){
+                        jobStatus.append("[SHIP UNDOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in port: " + port.getName() + "\n");
+                        for (Job job : dock.getShip().getJobs().values()){
+                            job.endJob();
+                            jobsPanePanel.validate();
                         }
+                        
+                        dock.setShip(null);
+                        
+                        if (port.getQue().isEmpty()){
+                            return;
+                        } else {
+                            dock.setShip(port.getQue().remove(0));
+                        }
+                        
+                        jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName()+ " to " + dock.getName() + " in port: " + port.getName() + "\n");
+                        for (Job job : dock.getShip().getJobs().values()){
+                            jobsPanePanel.add(job.createGUI());
+                            dock.getShip().setParent(dock.getIndex());
+                            jobsPanePanel.validate();
+                            job.startJob();
+                            //takeFromWorkerPool(job, dock.getShip());
+                        }
+                        
+                        //updateWorkerPoolGUI();
+                        
                     }
                 }
             }
-
         }
     }
     
@@ -633,6 +679,10 @@ public class SeaPortProgram extends JFrame{
         jobPoolText += "\n";
         jobPool.setText(jobPoolText);
     }
+    
+    /* This is in preparation of Project 4.  The goal for this is to remove from and add to a 
+    worker pool.  This worker pool is setup per port, per skill. It looks like this:
+    {port={skill=[person]}}*/
     
     public void returnWorkerPool(ArrayList<Person> workers, SeaPort port){
         for (Person worker : workers){
@@ -660,11 +710,23 @@ public class SeaPortProgram extends JFrame{
             
             job.setParentPort(jobPort);
             ArrayList<Person> workers = workerPool.get(jobPort).get(requirement);
+            
+            
         }
     }
      
     public static void main(String[] args) {
         SeaPortProgram sp = new SeaPortProgram();
+        
+        while (sp.running){
+            sp.update();
+            //System.out.println("UPDATING");
+            //try {
+            //    Thread.sleep(100);
+            //} catch (InterruptedException ex) {
+            //    Thread.currentThread().interrupt();
+            //}
+        }
         
     }
 

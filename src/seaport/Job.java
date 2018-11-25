@@ -89,7 +89,7 @@ public class Job extends Thing implements Runnable{
         return rowPanel;
     }
     
-    // Toggle the Boolean Flags
+    // Toggle the Boolean Flags - This is what happens when the user presses the button
     private void toggleSuspend() {
         setIsSuspended(!isIsSuspended());
     }
@@ -99,6 +99,7 @@ public class Job extends Thing implements Runnable{
         setIsFinished(true);       
     }
     
+    // Check if we can start the job
     public boolean canJobStart(){
         for (Person worker : workers ){
             if (worker == null){
@@ -138,12 +139,6 @@ public class Job extends Thing implements Runnable{
     }
     
     public void endJob(){
-        progressBar.setVisible(false);
-        suspendButton.setVisible(false);
-        cancelButton.setVisible(false);
-        rowPanel.remove(progressBar);
-        rowPanel.remove(suspendButton);
-        rowPanel.remove(cancelButton);
         setIsFinished(true);
         setIsWaitingToFinish(false);
         
@@ -172,7 +167,7 @@ public class Job extends Thing implements Runnable{
                 time += 100;
                 progressBar.setValue((int) (((time - startTime) / timeNeeded) * 100));
             } else {
-                updateStatus(Status.DONE);
+                updateStatus(Status.SUSPENDED);
             }
             
         }
