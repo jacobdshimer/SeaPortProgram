@@ -22,6 +22,7 @@ import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -29,6 +30,9 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 
@@ -155,9 +159,10 @@ public class SeaPortProgram extends JFrame{
         
         // Panel for JTree
         
-        tree.setModel(null);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        //tree.setRootVisible(false);
         treePane = new JScrollPane(tree);
+        treePane.setPreferredSize(new Dimension(200, 0));
         treePanel.add(treePane, BorderLayout.CENTER);
         
         // Buttons for JTree
@@ -225,7 +230,10 @@ public class SeaPortProgram extends JFrame{
         search.addActionListener (e -> search((String)(comboBox.getSelectedItem()), (textField.getText())));
         clear.addActionListener (e -> clear());
         sort.addActionListener(e -> sort((String)(comboBox2.getSelectedItem())));
-        tree.getSelectionModel().addTreeSelectionListener(e -> displaySelected(e.getPath().toString()));
+        expand.addActionListener(e -> expand());
+        collapse.addActionListener(e -> collapse());
+        details.addActionListener(e -> getDetails(tree.getSelectionPath()));
+        
         
         
     }
@@ -329,12 +337,18 @@ public class SeaPortProgram extends JFrame{
             DefaultMutableTreeNode dockNode = new DefaultMutableTreeNode("Docks");
             DefaultMutableTreeNode queNode = new DefaultMutableTreeNode("Que");
             DefaultMutableTreeNode personNode = new DefaultMutableTreeNode("People");
+            DefaultMutableTreeNode shipNode = new DefaultMutableTreeNode("Ships");
+            
             for (Dock dock:port.getDocks()){
                 dockNode.add(new DefaultMutableTreeNode(dock.getName()));
             }
             
             for (Ship ship:port.getQue()){
                 queNode.add(new DefaultMutableTreeNode(ship.getName()));
+            }
+            
+            for (Ship ship:port.getShips()){
+                shipNode.add(new DefaultMutableTreeNode(ship.getName()));
             }
             
             for (Person person:port.getPersons()){
@@ -351,12 +365,15 @@ public class SeaPortProgram extends JFrame{
             workerPool.put(port, skillsMap);
             portNode.add(dockNode);
             portNode.add(queNode);
+            portNode.add(shipNode);
             portNode.add(personNode);
             ports.add(portNode);
             
         }
         
         
+        tree.expandRow(0);
+        tree.setRootVisible(false);
         ready = true;
         updateWorkerPoolGUI();
         //update();
@@ -370,6 +387,7 @@ public class SeaPortProgram extends JFrame{
         if (!ready){
             textArea.append("FILE NOT READ YET!\n");
         } else {
+            
             target = target.replace(" ", "");
             // Lets the user know what it is searching for
             textArea.append("Searching for " + target + " by " + type + "\n");
@@ -562,20 +580,33 @@ public class SeaPortProgram extends JFrame{
         }
     }
     
-    public void displaySelected(String selected) {
-        /*
-        Still working on this implementation, trying to make it so that when the user selects on a node and hits search, it search.
-        Currently this will just search as soon as the user selects a node, which ends with a lot of extra information.
-        //textArea.append(selected + "\n");
-        DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
-        //search("Name", selectedNode.getUserObject().toString());
-        
-        SeaPort portWithName = world.getPortByName(selected, world.getPorts());
-        if (portWithName != null) {
-            textArea.append(portWithName.toString());
+    
+    // World Tree Buttons methods
+    private void getDetails(TreePath selectionPath) {
+        try {
+            String[] target = selectionPath.toString().replace("[", "").replace("]", "").split(",");
+            search("Name", target[target.length - 1]);
+        } catch (NullPointerException ex) {
+            JOptionPane.showMessageDialog(null, "You must select an object to get details of it.", "No Selection", JOptionPane.ERROR_MESSAGE);
+            return;
         }
+        
+    }
 
-        //textArea.append(selectedNode.getUserObject().toString());*/
+    private void collapse() {
+        int row = tree.getRowCount();
+        while (row >= 0){
+            tree.collapseRow(row);
+            row--;
+        }
+    }
+
+    private void expand() {
+        int row = 0;
+        while (row < tree.getRowCount()){
+            tree.expandRow(row);
+            row++;
+        }
     }
     
     public void update(){
@@ -729,6 +760,8 @@ public class SeaPortProgram extends JFrame{
         }
         
     }
+
+    
 
     
 }

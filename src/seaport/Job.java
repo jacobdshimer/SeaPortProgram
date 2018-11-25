@@ -76,8 +76,12 @@ public class Job extends Thing implements Runnable{
     public JPanel createGUI(){
         rowPanel = new JPanel(new GridLayout(1, 4));
         rowLabel = new JLabel("Job: " + this.getName() + " on " + this.getParentShip().getName(), JLabel.CENTER);
+        rowLabel.setToolTipText("Job Name and the Ship its on.");
         progressBar = new JProgressBar();
         progressBar.setStringPainted(true);
+        progressBar.setToolTipText("Job Progress");
+        suspendButton.setToolTipText("Job Status. Click to Suspend Job");
+        cancelButton.setToolTipText("Cancle Job. WARNING: This is not reversible.");
         
         rowPanel.add(rowLabel);
         rowPanel.add(progressBar);
