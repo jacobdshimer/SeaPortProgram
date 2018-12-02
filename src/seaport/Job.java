@@ -26,7 +26,7 @@ public class Job extends Thing implements Runnable{
 
     
     
-    private enum Status { RUNNING, SUSPENDED, WAITING, DONE };
+    private enum Status { RUNNING, SUSPENDED, WAITING, DONE, CANCELLED };
     private Ship parentShip;
     private SeaPort parentPort;
     private Status status;
@@ -38,8 +38,6 @@ public class Job extends Thing implements Runnable{
     private boolean isWaitingToFinish;
     
     // GUI Variables
-    private JTextArea statusLog;
-    private JTextArea workerLog;
     private JButton cancelButton;
     private JButton suspendButton;
     private JProgressBar progressBar;
@@ -65,7 +63,7 @@ public class Job extends Thing implements Runnable{
         suspendButton = new JButton("Suspend");
         
         
-        thread = new Thread(this);
+        thread = new Thread(this);        
         workers = new ArrayList<>(requirements.size());
         
         parentShip = allShips.get(this.getParent());
@@ -81,7 +79,7 @@ public class Job extends Thing implements Runnable{
         progressBar.setStringPainted(true);
         progressBar.setToolTipText("Job Progress");
         suspendButton.setToolTipText("Job Status. Click to Suspend Job");
-        cancelButton.setToolTipText("Cancle Job. WARNING: This is not reversible.");
+        cancelButton.setToolTipText("Cancel Job. WARNING: This is not reversible.");
         
         rowPanel.add(rowLabel);
         rowPanel.add(progressBar);
@@ -114,6 +112,7 @@ public class Job extends Thing implements Runnable{
         return true;
     }
     
+    // Changes the suspend button's text and color
     private void updateStatus(Status st){
         status = st;
         switch(status){
@@ -133,26 +132,46 @@ public class Job extends Thing implements Runnable{
                 suspendButton.setBackground(Color.RED);
                 suspendButton.setText("DONE");
                 break;
+            // This hasn't been implemented yet.  The idea behind this status is for when the user cancels a job, instead of saying
+            // done, it'll say cancelled.  Also if a port doesn't have the resources to support a job, it should show cancelled
+            // not done
+            case CANCELLED:
+                suspendButton.setBackground(Color.RED);
+                suspendButton.setText("CANCELLED");
         }
     } 
     
+    // Starts the thread
     public synchronized void startJob(){
         setIsFinished(false);
         setIsWaitingToFinish(false);
         thread.start();
     }
     
+    // for when the thread ends, just changes the boolean flags
     public void endJob(){
         setIsFinished(true);
         setIsWaitingToFinish(false);
         
     }
     
+    // This method is for project 4, haven't implemented this yet
+    public void noResourcesAvailable(){
+        setIsCancelled(true);
+        setIsWaitingToFinish(false);
+        updateStatus(Status.CANCELLED);
+    }
+    
+    // Overrided run method
     @Override
     public void run(){
+        // gets the current time in milliseconds, sets the start time to that value
+        // then finds the stop time by first multiplying the duration by 1000, thus 
+        // turning it from seconds to milliseconds, then adds it to the current time.
+        // This is a good way of finding how long the job should take
         long time = System.currentTimeMillis();
         long startTime = time;
-        long stopTime = time + 1000 * (long)duration;
+        long stopTime = time + 1000 * (long)getDuration();
         double timeNeeded = stopTime - time;
         
         while (time < stopTime && !isCancelled){
@@ -162,6 +181,13 @@ public class Job extends Thing implements Runnable{
                 e.printStackTrace();
             }
             
+            // Quick if condition first looking to see if the isWaitingToFinish flag is true,
+            // if it is, set the status to waiting, add 100 to the time, and set the value of the 
+            // progressBar to a percentage of completion.
+            // The progressBar is a percentage of completion.  This is found by first taking the
+            // current time (this is updated by adding 100 to the time) and minusing it by the 
+            // startTime.  This is then divided by the timeNeeded varaiable and to convert that from
+            // a decimal to a percentage, it is times by 100
             if (isWaitingToFinish){
                 updateStatus(Status.WAITING);
                 time += 100;
@@ -181,6 +207,11 @@ public class Job extends Thing implements Runnable{
             updateStatus(Status.DONE);
         }
         isFinished = true;
+    }
+    
+    // ------------------------ADDERS-----------------------------------------
+    public void addWorkers(Person person){
+        getWorkers().add(person);
     }
     
     // ------------------------SETTERS-----------------------------------------
