@@ -45,7 +45,7 @@ public class Job extends Thing implements Runnable{
     private JLabel rowLabel;
     
 
-    public Job(Scanner sc, HashMap<Integer, Ship> allShips, HashMap<Integer, Dock> allDocks, JPanel worldJobs) {
+    public Job(Scanner sc, HashMap<Integer, Ship> allShips, JPanel worldJobs) {
         super(sc);
         this.duration = sc.nextDouble();
         this.requirements = new ArrayList<>();
@@ -101,7 +101,7 @@ public class Job extends Thing implements Runnable{
         setIsFinished(true);       
     }
     
-    // Check if we can start the job
+    // Check if we can start the job - this will be used in Project 4
     public boolean canJobStart(){
         for (Person worker : workers ){
             if (worker == null){
@@ -149,10 +149,10 @@ public class Job extends Thing implements Runnable{
     }
     
     // for when the thread ends, just changes the boolean flags
-    public void endJob(){
+    public void endJob() throws InterruptedException{
         setIsFinished(true);
         setIsWaitingToFinish(false);
-        
+        thread.join();
     }
     
     // This method is for project 4, haven't implemented this yet
@@ -188,11 +188,7 @@ public class Job extends Thing implements Runnable{
             // current time (this is updated by adding 100 to the time) and minusing it by the 
             // startTime.  This is then divided by the timeNeeded varaiable and to convert that from
             // a decimal to a percentage, it is times by 100
-            if (isWaitingToFinish){
-                updateStatus(Status.WAITING);
-                time += 100;
-                progressBar.setValue((int) (((time - startTime) / timeNeeded) * 100));
-            } else if (!isSuspended){
+            if (!isSuspended){
                 updateStatus(Status.RUNNING);
                 time += 100;
                 progressBar.setValue((int) (((time - startTime) / timeNeeded) * 100));

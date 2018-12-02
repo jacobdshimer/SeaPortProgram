@@ -6,7 +6,6 @@
 package seaport;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class World extends Thing{
     private ArrayList<SeaPort> ports;

@@ -47,7 +47,6 @@ public class SeaPortProgram extends JFrame{
     // Got rid of the different arrays and now everything is stored within this one object world
     World world = new World();
     HashMap<Integer, Ship> allShips = new HashMap<>();
-    HashMap<Integer, Dock> allDocks = new HashMap<>();
     HashMap<SeaPort, HashMap<String,ArrayList<Person>>> workerPool;
     JTable table;
     // This is so that if someone tries to run any part of the program without first reading the file
@@ -318,7 +317,7 @@ public class SeaPortProgram extends JFrame{
                     break;
                     // Same as the ships loop, this just adds jobs to a dock if the jobs parent matches the docks index
                 case "job":
-                    Job job = new Job(line, allShips, allDocks, jobsPanePanel);
+                    Job job = new Job(line, allShips, jobsPanePanel);
                     for (SeaPort p: world.getPorts()){
                         for (Ship s: p.getShips()){
                             if (job.getParent() == s.getIndex()){
