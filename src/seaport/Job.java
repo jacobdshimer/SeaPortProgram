@@ -14,7 +14,6 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
-import javax.swing.JTextArea;
 
 /**
  *
@@ -26,7 +25,7 @@ public class Job extends Thing implements Runnable{
 
     
     
-    private enum Status { RUNNING, SUSPENDED, WAITING, DONE, CANCELLED };
+    private enum Status { RUNNING, SUSPENDED, WAITING, DONE };
     private Ship parentShip;
     private SeaPort parentPort;
     private Status status;
@@ -45,7 +44,7 @@ public class Job extends Thing implements Runnable{
     private JLabel rowLabel;
     
 
-    public Job(Scanner sc, HashMap<Integer, Ship> allShips, HashMap<Integer, Dock> allDocks, JPanel worldJobs) {
+    public Job(Scanner sc, HashMap<Integer, Ship> allShips, JPanel worldJobs) {
         super(sc);
         this.duration = sc.nextDouble();
         this.requirements = new ArrayList<>();
@@ -98,18 +97,7 @@ public class Job extends Thing implements Runnable{
     
     private void toggleCancel() {
         setIsCancelled(true);
-        setIsFinished(true);       
-    }
-    
-    // Check if we can start the job
-    public boolean canJobStart(){
-        for (Person worker : workers ){
-            if (worker == null){
-                updateStatus(Status.WAITING);
-                return false;
-            }
-        }
-        return true;
+        setIsFinished(true);
     }
     
     // Changes the suspend button's text and color
@@ -132,12 +120,7 @@ public class Job extends Thing implements Runnable{
                 suspendButton.setBackground(Color.RED);
                 suspendButton.setText("DONE");
                 break;
-            // This hasn't been implemented yet.  The idea behind this status is for when the user cancels a job, instead of saying
-            // done, it'll say cancelled.  Also if a port doesn't have the resources to support a job, it should show cancelled
-            // not done
-            case CANCELLED:
-                suspendButton.setBackground(Color.RED);
-                suspendButton.setText("CANCELLED");
+
         }
     } 
     
@@ -145,21 +128,21 @@ public class Job extends Thing implements Runnable{
     public synchronized void startJob(){
         setIsFinished(false);
         setIsWaitingToFinish(false);
+        thread.setName(this.getName());
         thread.start();
     }
     
     // for when the thread ends, just changes the boolean flags
-    public void endJob(){
+    public void endJob() throws InterruptedException{
         setIsFinished(true);
         setIsWaitingToFinish(false);
-        
+        thread.join();
     }
     
     // This method is for project 4, haven't implemented this yet
     public void noResourcesAvailable(){
         setIsCancelled(true);
         setIsWaitingToFinish(false);
-        updateStatus(Status.CANCELLED);
     }
     
     // Overrided run method
@@ -188,11 +171,7 @@ public class Job extends Thing implements Runnable{
             // current time (this is updated by adding 100 to the time) and minusing it by the 
             // startTime.  This is then divided by the timeNeeded varaiable and to convert that from
             // a decimal to a percentage, it is times by 100
-            if (isWaitingToFinish){
-                updateStatus(Status.WAITING);
-                time += 100;
-                progressBar.setValue((int) (((time - startTime) / timeNeeded) * 100));
-            } else if (!isSuspended){
+            if (!isSuspended){
                 updateStatus(Status.RUNNING);
                 time += 100;
                 progressBar.setValue((int) (((time - startTime) / timeNeeded) * 100));
@@ -211,7 +190,7 @@ public class Job extends Thing implements Runnable{
     
     // ------------------------ADDERS-----------------------------------------
     public void addWorkers(Person person){
-        getWorkers().add(person);
+        this.workers.add(person);
     }
     
     // ------------------------SETTERS-----------------------------------------
@@ -281,8 +260,10 @@ public class Job extends Thing implements Runnable{
     public Ship getParentShip() {
         return parentShip;
     }
-    
-    
+
+    public Thread getThread() {
+        return thread;
+    }
     
     @Override
     public String toString(){
