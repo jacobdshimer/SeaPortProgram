@@ -5,7 +5,6 @@
 
 package seaport;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Scanner;
 
@@ -62,10 +61,6 @@ public class Ship extends Thing{
         this.jobs.put(index, job);
     }
     
-    
-    
-    
-    
     public String toString(){
         String st = super.toString();
         st += "Arrival Time: " + getArrivalTime() + "\n";
@@ -79,51 +74,6 @@ public class Ship extends Thing{
             st += job.toString() + "\n";
         }
         return st;
-    }
-    
-}
-
-// --------------------------- CUSTOM COMPARATORS -----------------------------
-class DraftComparator implements Comparator<Ship>{
-
-    @Override
-    public int compare(Ship ship1, Ship ship2) {
-        Integer draft1 = (int) Math.round(ship1.getDraft());
-        Integer draft2 = (int) Math.round(ship2.getDraft());
-        return draft1.compareTo(draft2);
-    }
-    
-}
-
-class LengthComparator implements Comparator<Ship>{
-
-    @Override
-    public int compare(Ship ship1, Ship ship2) {
-        Integer draft1 = (int) Math.round(ship1.getLength());
-        Integer draft2 = (int) Math.round(ship2.getLength());
-        return draft1.compareTo(draft2);
-    }
-    
-}
-
-class WidthComparator implements Comparator<Ship>{
-
-    @Override
-    public int compare(Ship ship1, Ship ship2) {
-        Integer draft1 = (int) Math.round(ship1.getWidth());
-        Integer draft2 = (int) Math.round(ship2.getWidth());
-        return draft1.compareTo(draft2);
-    }
-    
-}
-
-class WeightComparator implements Comparator<Ship>{
-
-    @Override
-    public int compare(Ship ship1, Ship ship2) {
-        Integer draft1 = (int) Math.round(ship1.getWeight());
-        Integer draft2 = (int) Math.round(ship2.getWeight());
-        return draft1.compareTo(draft2);
     }
     
 }

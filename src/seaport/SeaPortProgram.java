@@ -14,8 +14,11 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -103,7 +106,7 @@ public class SeaPortProgram extends JFrame{
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         int height = screenSize.height;
         int width = screenSize.width;
-        frame.setSize(width/2 + 275, height/2 + 300);
+        frame.setSize(width/2 + 400, height/2 + 300);
         
         // This just sets the frame to the middle of the screen
         frame.setLocationRelativeTo(null);
@@ -223,7 +226,13 @@ public class SeaPortProgram extends JFrame{
         frame.validate();
         
         // Add the action listeners
-        read.addActionListener (e -> readFile(sc));
+        read.addActionListener (e -> {
+            try {
+                readFile(sc);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(SeaPortProgram.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
         search.addActionListener (e -> search((String)(comboBox.getSelectedItem()), (textField.getText())));
         clear.addActionListener (e -> clear());
         sort.addActionListener(e -> sort((String)(comboBox2.getSelectedItem())));
@@ -236,7 +245,7 @@ public class SeaPortProgram extends JFrame{
     }
     
     // Read the file
-    public void readFile(Scanner sc){
+    public void readFile(Scanner sc) throws InterruptedException{
         workerPool = new HashMap<>();
         String inline;
         
@@ -322,7 +331,6 @@ public class SeaPortProgram extends JFrame{
                         for (Ship s: p.getShips()){
                             if (job.getParent() == s.getIndex()){
                                 s.addJobs(job.getIndex(), job);
-                                update();
                             }
                         }
                         
@@ -622,7 +630,7 @@ public class SeaPortProgram extends JFrame{
     }
     
     //The following methods deal with threading.
-    public void update(){
+    public void update() throws InterruptedException{
         if (ready){
             for (SeaPort port : world.getPorts()){
                 for (Dock dock : port.getDocks()){
@@ -671,18 +679,27 @@ public class SeaPortProgram extends JFrame{
                         readyToLeave = true;
                     }
                     
-                                        
+                    
+                    // If the ship is ready to leave
                     if (readyToLeave){
+                        
+                        // First, undock the ship, then loop through the jobs and return the workers back to the
+                        // pool by calling the returnWorkerPool method, passing the job's workers and the current
+                        // port to the method.  Then end the job and revalidate the pane that handles displaying job
+                        // information
                         jobStatus.append("[SHIP UNDOCKING] " + dock.getShip().getName() + " from " + dock.getName() + " in port: " + port.getName() + "\n");
                         for (Job job : dock.getShip().getJobs().values()){
-                            //returnWorkerPool(job.getWorkers(),port);
+                            returnWorkerPool(job.getWorkers(),port);
                             job.endJob();
-                            
                             jobsPanePanel.validate();
                         }
                         
+                        // Set the dock's ship to null
                         dock.setShip(null);
                         
+                        
+                        // Check if the que is empty and if it is, then return out of the method.  Else
+                        // dock the first available ship in the que to the dock
                         if (port.getQue().isEmpty()){
                             return;
                         } else {
@@ -690,18 +707,20 @@ public class SeaPortProgram extends JFrame{
                         }
                         
                         jobStatus.append("[SHIP DOCKING] " + dock.getShip().getName()+ " to " + dock.getName() + " in port: " + port.getName() + "\n");
-                        for (Job job : dock.getShip().getJobs().values()){
-                            jobsPanePanel.add(job.createGUI());
-                            dock.getShip().setParent(dock.getIndex());
-                            jobsPanePanel.validate();
-                            //takeFromWorkerPool(job, dock.getShip());
-                            job.startJob();
-                            
+                        // Set the ship's parent to its new docks' index
+                        dock.getShip().setParent(dock.getIndex());                       
+                    }
+                    
+                    // Loop through the jobs for the docked ship's and attept to start them.
+                    // Only attempt to start jobs that aren't finished or cancelled
+                    for (Job job : dock.getShip().getJobs().values()){
+                        if (!(job.isIsCancelled() || job.isIsFinished()) && !job.getThread().isAlive()) {
+                            takeFromWorkerPool(job, dock.getShip());
                         }
                         
-                        updateWorkerPoolGUI();
-                        
                     }
+                    
+                    updateWorkerPoolGUI();
                 }
             }
         }
@@ -732,15 +751,19 @@ public class SeaPortProgram extends JFrame{
     public void returnWorkerPool(ArrayList<Person> workers, SeaPort port){
         for (Person worker : workers){
             workerPool.get(port).get(worker.getSkill()).add(worker);
-            System.out.println("Adding back to pool" + workers.toString());
-            jobStatus.append("[WORKER RELEASED] " + worker.getName() + " - " + worker.getSkill() + " back in worker pool for port: " + port.getName() + "\n");
+            jobStatus.append("[WORKER RELEASED] " + worker.getName() + " - " + worker.getSkill().toUpperCase() + " back in worker pool for port: " + port.getName() + "\n");
         }
         
         updateWorkerPoolGUI();
     }
     
     public void takeFromWorkerPool(Job job, Ship ship){
+        // Whether a ship can leave or not.  It starts out as true and if a 
+        // ship can't, then it gets changed
+        boolean canLeave = true;
         ArrayList<Person> jobWorkers = new ArrayList<>();
+        
+        // Loop through the requirements and find the worker with the correct skill
         for (String requirement : job.getRequirements()){
             
             // Get the Port that this job belongs too, probably a better way to do this, need to look into it,
@@ -755,34 +778,60 @@ public class SeaPortProgram extends JFrame{
             }
             
             job.setParentPort(jobPort);
-            //ArrayList<Person> workers = workerPool.get(jobPort).get(requirement);
+            
             try{
-                Person worker = workerPool.get(jobPort).get(requirement).remove(0);
-                jobStatus.append("[WORKER ASSIGNED] " + worker.getName() + " - " + worker.getSkill() + " has been assigned to " + ship.getName() + "\n");
-                jobWorkers.add(worker);
+                // Ships were taking workers even though they didn't have all of 
+                // the required workers at the end.  This is part of the solution I found.
+                // Instead of removing the worker from the worker pool, only get a copy of that worker.
+                // If the ship can in fact leave, we will assign the workers later and remove them
+                // from the pool.
+                jobWorkers.add(workerPool.get(jobPort).get(requirement).get(0));
             } catch (NullPointerException ex){
                 // This gets thrown if there is no skill that matches what is required in the job
                 // If this happens, maybe have the thread close and the ship undock
+                canLeave = false;
                 job.noResourcesAvailable();
-                jobStatus.append("[JOB CANCELLED] JOB " + job.getName() + " has been cancelled because the skill " + requirement + " is not available at " + jobPort.getName() + "\n");
+                jobStatus.append("[JOB CANCELLED] " + job.getName() + " has been cancelled because the skill " + requirement.toUpperCase() + " is not available at " + jobPort.getName() + "\n");
             } catch (IndexOutOfBoundsException ex){
                  // This gets thrown if there is no one to work the job but the skill exists in the SeaPort
-                 // If this happens maybe have the thread wait and try again before starting the thread
-                 ex.printStackTrace();
+                 canLeave = false;
+                 return;
             }
-            
-            
-            
         }
+        
+        // If the size of the workers is the same as the size of the requirements, remove them from the
+        // workerPool.  This is done by passing the value of the worker within the for loop instead of the
+        // index.
+        
+        if (jobWorkers.size() == job.getRequirements().size()){
+            job.setWorkers(jobWorkers);
+            for (Person worker : jobWorkers){
+                workerPool.get(job.getParentPort()).get(worker.getSkill()).remove(worker);
+                jobStatus.append("[WORKER ASSIGNED] " + worker.getName() + " - " + worker.getSkill() + " has been assigned to " + ship.getName() + "\n");
+            }
+        }
+        
+        // If the workers can leave and the thread is not alive, create the GUI and start the job's thread
+        // else, return out of the method
+        if (canLeave){
+            jobsPanePanel.add(job.createGUI());
+            jobsPanePanel.validate();
+            job.startJob();
+        }
+        
     }
-    
-    // END OF PROJECT 4 FUTURE CODE
-     
-    public static void main(String[] args) {
+         
+    public static void main(String[] args) throws InterruptedException {
         SeaPortProgram sp = new SeaPortProgram();
         
+        // While the SeaPortProgram is running
         while (sp.running){
+            
+            // Get the current time in milliseconds.  This is to limit the number of updates from once 
+            // every few milliseconds to once a second
+            long millis = System.currentTimeMillis();
             sp.update();
+            Thread.sleep(1000 - millis % 1000);
         }
         
     }

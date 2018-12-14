@@ -14,7 +14,6 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
-import javax.swing.JTextArea;
 
 /**
  *
@@ -26,7 +25,7 @@ public class Job extends Thing implements Runnable{
 
     
     
-    private enum Status { RUNNING, SUSPENDED, WAITING, DONE, CANCELLED };
+    private enum Status { RUNNING, SUSPENDED, WAITING, DONE };
     private Ship parentShip;
     private SeaPort parentPort;
     private Status status;
@@ -98,18 +97,7 @@ public class Job extends Thing implements Runnable{
     
     private void toggleCancel() {
         setIsCancelled(true);
-        setIsFinished(true);       
-    }
-    
-    // Check if we can start the job - this will be used in Project 4
-    public boolean canJobStart(){
-        for (Person worker : workers ){
-            if (worker == null){
-                updateStatus(Status.WAITING);
-                return false;
-            }
-        }
-        return true;
+        setIsFinished(true);
     }
     
     // Changes the suspend button's text and color
@@ -132,12 +120,7 @@ public class Job extends Thing implements Runnable{
                 suspendButton.setBackground(Color.RED);
                 suspendButton.setText("DONE");
                 break;
-            // This hasn't been implemented yet.  The idea behind this status is for when the user cancels a job, instead of saying
-            // done, it'll say cancelled.  Also if a port doesn't have the resources to support a job, it should show cancelled
-            // not done
-            case CANCELLED:
-                suspendButton.setBackground(Color.RED);
-                suspendButton.setText("CANCELLED");
+
         }
     } 
     
@@ -145,6 +128,7 @@ public class Job extends Thing implements Runnable{
     public synchronized void startJob(){
         setIsFinished(false);
         setIsWaitingToFinish(false);
+        thread.setName(this.getName());
         thread.start();
     }
     
@@ -159,7 +143,6 @@ public class Job extends Thing implements Runnable{
     public void noResourcesAvailable(){
         setIsCancelled(true);
         setIsWaitingToFinish(false);
-        updateStatus(Status.CANCELLED);
     }
     
     // Overrided run method
@@ -207,7 +190,7 @@ public class Job extends Thing implements Runnable{
     
     // ------------------------ADDERS-----------------------------------------
     public void addWorkers(Person person){
-        getWorkers().add(person);
+        this.workers.add(person);
     }
     
     // ------------------------SETTERS-----------------------------------------
@@ -277,8 +260,10 @@ public class Job extends Thing implements Runnable{
     public Ship getParentShip() {
         return parentShip;
     }
-    
-    
+
+    public Thread getThread() {
+        return thread;
+    }
     
     @Override
     public String toString(){
